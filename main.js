@@ -1,16 +1,17 @@
 import * as THREE from 'three';
-import { createCamera, createControls } from './camera.js';  // Importing camera and controls setup
+import { createCamera, createControls } from './camera.js';
+import { createScene, createSunLight } from './scene.js';
+import { setupUI } from './ui.js';
 
-let camera, controls, scene, renderer;
+let camera, controls, scene, renderer, sunLight;
+let timeOfDay = 12;  // Default start time is midday
 
 init();
 animate();
 
 function init() {
     // Scene setup
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xcccccc);
-    scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
+    scene = createScene();
 
     // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -22,27 +23,32 @@ function init() {
     camera = createCamera();
     controls = createControls(camera, renderer);
 
-    // Create a 15x15 cube (acting as a plane)
-    const geometry = new THREE.BoxGeometry(15, 1, 15);  // Width: 15, Height: 1 (thin), Depth: 15
-    const material = new THREE.MeshPhongMaterial({ color: 0xeeeeee, flatShading: true });
-    const plane = new THREE.Mesh(geometry, material);
-    plane.position.y = 0;  // Set it on the ground (y-axis)
-    scene.add(plane);
+    // Add the Sunlight to the scene
+    sunLight = createSunLight();
+    scene.add(sunLight);
 
-    // Lighting setup
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1);
-    dirLight1.position.set(1, 1, 1);
-    scene.add(dirLight1);
-
-    const dirLight2 = new THREE.DirectionalLight(0x002288, 1);
-    dirLight2.position.set(-1, -1, -1);
-    scene.add(dirLight2);
-
-    const ambientLight = new THREE.AmbientLight(0x555555);
-    scene.add(ambientLight);
+    // Set up UI to control time of day (from 6 AM to 6 PM)
+    setupUI(onTimeOfDayChanged);
 
     // Resize listener
     window.addEventListener('resize', onWindowResize);
+}
+
+function onTimeOfDayChanged(value) {
+    timeOfDay = value;
+    updateSunPosition();
+}
+
+function updateSunPosition() {
+    // Rotate the sunlight based on time of day
+    // 6 AM corresponds to timeOfDay = 6, 6 PM corresponds to timeOfDay = 18
+    // Map this to a rotation from -90° (6 AM) to 90° (6 PM), which corresponds to -PI/2 to PI/2
+    const normalizedTime = (timeOfDay - 6) / 12;  // Normalize from [6,18] to [0,1]
+    const angle = normalizedTime * Math.PI;  // Convert to radians
+
+    // Update sun position based on the angle
+    sunLight.position.set(Math.cos(angle) * 100, Math.sin(angle) * 100, 50);
+    sunLight.updateMatrixWorld();
 }
 
 function onWindowResize() {
