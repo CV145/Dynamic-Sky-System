@@ -9,12 +9,20 @@ export function createCamera() {
 
 export function createControls(camera, renderer) {
     const controls = new MapControls(camera, renderer.domElement);
+
+    // Enable damping for smooth camera movement
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+
+    // Set maxPolarAngle to Math.PI to allow looking straight up
+    controls.maxPolarAngle = Math.PI;
+
+    // Allow looking straight down if needed (optional)
+    controls.minPolarAngle = 0;
+
     controls.screenSpacePanning = false;
     controls.minDistance = 50;
     controls.maxDistance = 500;
-    controls.maxPolarAngle = Math.PI / 2;
 
     return controls;
 }
