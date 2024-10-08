@@ -78,7 +78,7 @@ function onTimeOfDayChanged(value) {
 function updateSunPosition() {
     // Rotate the sunlight based on time of day
     const normalizedTime = timeOfDay / 24;  // Normalize from [0,23] to [0,1]
-    const angle = normalizedTime * Math.PI * 2;  // Full rotation
+    const angle = normalizedTime * Math.PI * 2 - Math.PI / 2;  // Full rotation
 
     // Update sun position based on the angle
     const distance = 500;

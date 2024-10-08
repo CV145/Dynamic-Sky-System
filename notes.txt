@@ -1,0 +1,8 @@
+updateMatrixWorld() - updates the world matrix of an object. This matrix determines the object's position, rotation, and scale in world space.
+
+In 3D graphics, every object has:
+- A local matrix: Defines the object's position, rotation, and scale relative to its parent.
+- A world matrix: Defines the object's position, rotation, and scale relative to the global (world) coordinate system.
+
+Call updateMatrixWorld after calling set() to ensure the matrix reflects the latest changes
+
