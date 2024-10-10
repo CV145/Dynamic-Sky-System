@@ -17,3 +17,7 @@ The sunLight.shadow.camera in three.js is a virtual camera that determines the a
 You can think of the shadow camera like a "light frustum" that captures the parts of the scene that will cast shadows. Any objects outside this frustum will not cast shadows.
 
 Yellow lines from camera helper are the shadow camera
+
+---
+
+Shaders work for cube but not for skybox

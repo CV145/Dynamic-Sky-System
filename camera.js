@@ -2,7 +2,7 @@ import { PerspectiveCamera } from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls.js';
 
 export function createCamera() {
-    const camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+    const camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 50000);
     camera.position.set(0, 50, 150);  // Adjusted to view the scene properly
     return camera;
 }

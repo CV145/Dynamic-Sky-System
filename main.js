@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { createCamera, createControls } from './camera.js';
 import { createScene, createHemisphereLight, createSunLight, createSunSphere, updateSunAppearance } from './scene.js';
 import { setupUI } from './ui.js';
+import { createSkybox, updateSkyboxColors } from './skybox.js';
 
-let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, plane;
+let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, skybox;
 let timeOfDay = 12;  // Default start time is midday
 
 init();
@@ -69,6 +70,11 @@ function init() {
     cube.receiveShadow = true;  // The cube also receives shadows
     scene.add(cube);
 
+
+    // Create and add the skybox
+    skybox = createSkybox();
+    scene.add(skybox);
+
     // Set up UI to control time of day (from 6 AM to 6 PM)
     setupUI(onTimeOfDayChanged);
 
@@ -101,13 +107,16 @@ function updateSunPosition() {
     sunSphere.updateMatrixWorld();
 
     // Update the background color based on time of day
-    updateBackgroundColor(normalizedTime);
+    //updateBackgroundColor(normalizedTime);
 
     // Update the sun's appearance (color and intensity)
     updateSunAppearance(normalizedTime, sunSphere, sunLight);
+
+    // Update the skybox color
+    updateSkyboxColors(normalizedTime, skybox);
 }
 
-function updateBackgroundColor(normalizedTime) {
+/*function updateBackgroundColor(normalizedTime) {
     const dayColor = new THREE.Color(0x87CEEB);  // Light sky blue for midday
     const nightColor = new THREE.Color(0x000033);  // Dark blue for night
     const sunsetColor = new THREE.Color(0xe6954e);  // Orange for sunset/sunrise
@@ -162,7 +171,7 @@ function updateBackgroundColor(normalizedTime) {
 
     // Set the scene background to the interpolated color
     scene.background = backgroundColor;
-}
+}*/
 
 
 function onWindowResize() {
