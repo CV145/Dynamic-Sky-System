@@ -6,3 +6,14 @@ In 3D graphics, every object has:
 
 Call updateMatrixWorld after calling set() to ensure the matrix reflects the latest changes
 
+---
+Lerp from sunset color to night color?
+---
+Casting shadows:
+- For objects to cast and receive shadows, both the renderer, the light source, and the objects themselves need to be configured to handle shadows
+
+The sunLight.shadow.camera in three.js is a virtual camera that determines the area in the scene where shadows are cast when using a DirectionalLight or a SpotLight. It defines the boundaries of the shadow casting area, which is important because shadows are calculated based on what is visible within this shadow camera's frustum (viewing area).
+
+You can think of the shadow camera like a "light frustum" that captures the parts of the scene that will cast shadows. Any objects outside this frustum will not cast shadows.
+
+Yellow lines from camera helper are the shadow camera

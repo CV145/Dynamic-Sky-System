@@ -7,13 +7,6 @@ export function createScene() {
     scene.background = new THREE.Color(0xcccccc);
     scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
 
-    // Create a plane
-    const geometry = new THREE.BoxGeometry(150, 1, 150);  // Width: 15, Height: 1 (thin), Depth: 15
-    const material = new THREE.MeshPhongMaterial({ color: 0xeeeeee, flatShading: true });
-    const plane = new THREE.Mesh(geometry, material);
-    plane.position.y = 0;  // Set it on the ground (y-axis)
-    scene.add(plane);
-
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0x555555);
     scene.add(ambientLight);
