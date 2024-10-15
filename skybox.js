@@ -55,7 +55,7 @@ export function updateSkyboxColors(normalizedTime, skybox) {
     // Time range for day phases (normalized between 0 and 1)
     const sunriseStart = 6 / 24;   // 6:00 AM
     const sunriseEnd = 7 / 24;     // 7:00 AM
-    const sunsetStart = 18 / 24;   // 6:00 PM
+    const sunsetStart = 17 / 24;   // 5:00 PM
     const sunsetEnd = 20 / 24;     // 8:00 PM
 
     let topColor, bottomColor;
