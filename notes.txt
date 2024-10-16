@@ -26,4 +26,7 @@ Shaders work for cube but not for skybox
 Adding stars to night sky:
 - Use a skyphere not a skybox
 
+---
+10/16/2024
 
+- Getting a white bottom color during nighttime

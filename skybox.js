@@ -69,11 +69,15 @@ void main() {
     vec4 starLayer = texture2D(starTexture, uv); //place a color of the star texture at this pixel
 
     // Control star visibility: only show stars in the upper portion of the skysphere (top dome). Result is between 1 and 0
-    float starVisibility = smoothstep(0.4, 1.0, heightFactor); 
+    // Apply fading to the stars based on height (so they fade out towards the bottom of the dome)
+    float fadeFactor = smoothstep(0.4, 0.8, heightFactor); // Adjust the 0.4 to control where the stars fade
     //Like sky color gradient, heightFactor controls the level at which the star textured pixel appears 
+    
+    // Only fade the stars using fadeFactor, while keeping the skyColor untouched
+    vec4 finalStarLayer = starLayer * nightFactor * fadeFactor;
 
-    // Blend the stars with the sky based on nightFactor and star visibility. skyColor is the color blended with bottom and top
-    gl_FragColor = mix(skyColor, starLayer * starVisibility, nightFactor);
+    // Combine the sky color with the star layer rendered on top
+    gl_FragColor = skyColor + finalStarLayer; // Add the stars on top of the sky
 }
 
         `,
@@ -94,10 +98,10 @@ export function updateSkysphereColors(normalizedTime, skysphere) {
     const dayTopColor = new THREE.Color(0x87CEEB);  // Light sky blue for midday (top)
     const dayBottomColor = new THREE.Color(0x3b809c);  // Pale blue for midday (bottom)
 
-    const nightTopColor = new THREE.Color(0x000033);  // Dark blue for night (top)
-    const nightBottomColor = new THREE.Color(0x000000);  // Black for night (bottom)
+    const nightTopColor = new THREE.Color(0x411e52);  // Dark blue for night (top)
+    const nightBottomColor = new THREE.Color(0x281133);  // Black for night (bottom)
 
-    const sunsetTopColor = new THREE.Color(0xffcc33);  // Golden color for sunset (top)
+    const sunsetTopColor = new THREE.Color(0x87CEEB);  // Golden color for sunset (top)
     const sunsetBottomColor = new THREE.Color(0xe6954e);  // Orange for sunset (bottom)
 
     const sunriseTopColor = new THREE.Color(0x87CEEB);  // Yellow for sunrise (top)
@@ -113,24 +117,54 @@ export function updateSkysphereColors(normalizedTime, skysphere) {
     let nightFactor = 0.0;
 
     // Determine the sky colors based on the time of day
-    if (normalizedTime < sunriseStart || normalizedTime > sunsetEnd) {
+    if (normalizedTime >= sunsetStart && normalizedTime <= sunsetEnd) {
+        const sunsetProgress = (normalizedTime - sunsetStart) / (sunsetEnd - sunsetStart);
+
+        // Smooth transition from day to sunset
+        if (sunsetProgress < 0.5) {
+            // First half of sunset transition: Day to Sunset
+            const dayToSunset = sunsetProgress * 2.0;  // Scale from 0 to 1 for day to sunset
+            topColor = dayTopColor.clone().lerp(sunsetTopColor, dayToSunset);
+            bottomColor = dayBottomColor.clone().lerp(sunsetBottomColor, dayToSunset);
+        } else {
+            // Second half of sunset transition: Sunset to Night
+            const sunsetToNight = (sunsetProgress - 0.5) * 2.0;  // Scale from 0 to 1 for sunset to night
+            topColor = sunsetTopColor.clone().lerp(nightTopColor, sunsetToNight);
+            bottomColor = sunsetBottomColor.clone().lerp(nightBottomColor, sunsetToNight);
+
+            nightFactor = sunsetProgress;  // Gradually fade in the stars
+        }
+    }
+    else if (normalizedTime >= sunriseStart && normalizedTime <= sunriseEnd) {
+        const sunriseProgress = (normalizedTime - sunriseStart) / (sunriseEnd - sunriseStart);
+
+        // Smooth transition from night to sunrise
+        if (sunriseProgress < 0.5) {
+            // First half of sunrise transition: Night to Sunrise
+            const nightToSunrise = sunriseProgress * 2.0;  // Scale from 0 to 1 for night to sunrise
+            topColor = nightTopColor.clone().lerp(sunriseTopColor, nightToSunrise);
+            bottomColor = nightBottomColor.clone().lerp(sunriseBottomColor, nightToSunrise);
+        } else {
+            // Second half of sunrise transition: Sunrise to Day
+            const sunriseToDay = (sunriseProgress - 0.5) * 2.0;  // Scale from 0 to 1 for sunrise to day
+            topColor = sunriseTopColor.clone().lerp(dayTopColor, sunriseToDay);
+            bottomColor = sunriseBottomColor.clone().lerp(dayBottomColor, sunriseToDay);
+        }
+
+        nightFactor = 1.0 - sunriseProgress;  // Gradually fade out the stars
+    }
+    else if (normalizedTime < sunriseStart || normalizedTime > sunsetEnd) {
+        // Full Night
         topColor = nightTopColor;
         bottomColor = nightBottomColor;
-        nightFactor = 1.0;  // Show stars at night
-    } else if (normalizedTime >= sunriseStart && normalizedTime <= sunriseEnd) {
-        const sunriseProgress = (normalizedTime - sunriseStart) / (sunriseEnd - sunriseStart);
-        topColor = nightTopColor.clone().lerp(sunriseTopColor, sunriseProgress);
-        bottomColor = nightBottomColor.clone().lerp(sunriseBottomColor, sunriseProgress);
-        nightFactor = 1.0 - sunriseProgress;
-    } else if (normalizedTime >= sunsetStart && normalizedTime <= sunsetEnd) {
-        const sunsetProgress = (normalizedTime - sunsetStart) / (sunsetEnd - sunsetStart);
-        topColor = dayTopColor.clone().lerp(sunsetTopColor, sunsetProgress);
-        bottomColor = dayBottomColor.clone().lerp(sunsetBottomColor, sunsetProgress);
-        nightFactor = sunsetProgress;
+        nightFactor = 1.0;  // Stars fully visible
     } else {
+        // Full Day
         topColor = dayTopColor;
         bottomColor = dayBottomColor;
+        nightFactor = 0.0;  // No stars during the day
     }
+
 
     // Update skysphere material
     skysphere.material.uniforms.topColor.value.copy(topColor);
