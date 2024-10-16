@@ -4,7 +4,7 @@ import { createScene, createHemisphereLight, createSunLight, createSunSphere, up
 import { setupUI } from './ui.js';
 import { createSkysphere, updateSkysphereColors } from './skybox.js';
 
-let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, skysphere;
+let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, skysphere, moonLight, moonSphere;
 let timeOfDay = 12;  // Default start time is midday
 
 init();
@@ -50,6 +50,25 @@ function init() {
     // Add the Sun Sphere (for visual representation of the sun)
     sunSphere = createSunSphere();
     scene.add(sunSphere);
+
+    // Add the Moonlight (DirectionalLight) with shadows
+    moonLight = new THREE.DirectionalLight(0xffffff, 0.2);  // Lower intensity for moonlight
+    moonLight.castShadow = true;
+    moonLight.shadow.mapSize.width = 2048;
+    moonLight.shadow.mapSize.height = 2048;
+    moonLight.shadow.camera.left = -100;
+    moonLight.shadow.camera.right = 100;
+    moonLight.shadow.camera.top = 100;
+    moonLight.shadow.camera.bottom = -100;
+    moonLight.shadow.camera.near = 0.5;
+    moonLight.shadow.camera.far = 1000;
+    moonLight.shadow.bias = -0.001;
+    scene.add(moonLight);
+
+    // Add the Moon Sphere (for visual representation of the moon)
+    moonSphere = createMoonSphere();
+    scene.add(moonSphere);
+
 
     // Add a ground plane to receive shadows
     const planeGeometry = new THREE.PlaneGeometry(250, 250);
@@ -106,8 +125,18 @@ function updateSunPosition() {
     sunSphere.position.set(x, y, z);
     sunSphere.updateMatrixWorld();
 
-    // Update the background color based on time of day
-    //updateBackgroundColor(normalizedTime);
+    // Position the moon on the opposite side of the sky
+    const moonAngle = angle + Math.PI;  // Opposite side to the sun
+    const moonX = Math.cos(moonAngle) * distance;
+    const moonY = Math.sin(moonAngle) * 300;
+
+    moonLight.position.set(moonX, moonY, z);
+    moonLight.updateMatrixWorld();
+    moonSphere.position.set(moonX, moonY, z);
+    moonSphere.updateMatrixWorld();
+
+    updateMoonAppearance(normalizedTime, moonSphere, moonLight);
+
 
     // Update the sun's appearance (color and intensity)
     updateSunAppearance(normalizedTime, sunSphere, sunLight);
@@ -116,63 +145,36 @@ function updateSunPosition() {
     updateSkysphereColors(normalizedTime, skysphere);
 }
 
-/*function updateBackgroundColor(normalizedTime) {
-    const dayColor = new THREE.Color(0x87CEEB);  // Light sky blue for midday
-    const nightColor = new THREE.Color(0x000033);  // Dark blue for night
-    const sunsetColor = new THREE.Color(0xe6954e);  // Orange for sunset/sunrise
-    const sunriseColor = new THREE.Color(0xe6b04e); // Yellow for sunrise
-
-    // Time range for day phases (normalized between 0 and 1)
-    const sunriseStart = 6 / 24;   // 6:00 AM
-    const sunriseEnd = 7 / 24;     // 7:00 AM
-    const sunsetStart = 18 / 24;   // 7:00 PM
-    const sunsetEnd = 20 / 24;     // 8:00 PM
-
-    let backgroundColor;
-
-    // Determine the background color based on time of day
-    if (normalizedTime < sunriseStart || normalizedTime > sunsetEnd) {
-        // Night (before 6:00 AM or after 8:00 PM)
-        backgroundColor = nightColor;
-    } else if (normalizedTime >= sunriseStart && normalizedTime <= sunriseEnd) {
-        // Sunrise transition (6:00 AM to 7:00 AM)
-        const sunriseMidpoint = (sunriseStart + sunriseEnd) / 2;  // Midpoint between 6:00 AM and 7:00 AM
-
-        let sunriseProgress;
-        if (normalizedTime <= sunriseMidpoint) {
-            // Night to Sunrise transition (6:00 AM to 6:30 AM)
-            sunriseProgress = (normalizedTime - sunriseStart) / (sunriseMidpoint - sunriseStart);
-            backgroundColor = nightColor.clone().lerp(sunriseColor, sunriseProgress);  // Gradual transition from night to sunrise
-        } else {
-            // Sunrise to Day transition (6:30 AM to 7:00 AM)
-            sunriseProgress = (normalizedTime - sunriseMidpoint) / (sunriseEnd - sunriseMidpoint);
-            backgroundColor = sunriseColor.clone().lerp(dayColor, sunriseProgress);  // Gradual transition from sunrise to day
-        }
+function updateMoonAppearance(normalizedTime, moonSphere, moonLight) {
+    // Adjust moonlight intensity based on the time of day
+    if (normalizedTime < 6 / 24 || normalizedTime > 19 / 24) {
+        // Fade moon in and out (fully visible at night, dim at day)
+        const moonIntensity = Math.abs(Math.sin((normalizedTime - 0.5) * Math.PI));
+        moonLight.intensity = moonIntensity * 0.2;  // Scale the moon intensity
+        moonSphere.material.opacity = 1;
+    } else {
+        moonLight.intensity = 0;  // No moonlight during the day
+        moonSphere.material.opacity = 0;
     }
-    else if (normalizedTime >= sunsetStart && normalizedTime <= sunsetEnd) {
-        // Sunset transition (7:00 PM to 8:00 PM)
-        const sunsetMidpoint = (sunsetStart + sunsetEnd) / 2;  // Midpoint between sunsetStart and sunsetEnd (7:00 PM to 7:30 PM)
+}
 
-        let sunsetProgress;
-        if (normalizedTime <= sunsetMidpoint) {
-            // Day to Sunset transition (7:00 PM to 7:30 PM)
-            sunsetProgress = (normalizedTime - sunsetStart) / (sunsetMidpoint - sunsetStart);
-            backgroundColor = dayColor.clone().lerp(sunsetColor, sunsetProgress);  // Gradual transition to sunset
-        } else {
-            // Sunset to Night transition (7:30 PM to 8:00 PM)
-            sunsetProgress = (normalizedTime - sunsetMidpoint) / (sunsetEnd - sunsetMidpoint);
-            backgroundColor = sunsetColor.clone().lerp(nightColor, sunsetProgress);  // Gradual transition to night
-        }
-    }
-    else {
-        // Daytime (7:00 AM to 7:00 PM): Full day color (light blue)
-        backgroundColor = dayColor;
-    }
 
-    // Set the scene background to the interpolated color
-    scene.background = backgroundColor;
-}*/
+function createMoonSphere() {
+    // Create a glowing sphere to represent the moon
+    const moonGeometry = new THREE.SphereGeometry(10, 32, 32);
+    const moonMaterial = new THREE.MeshPhongMaterial({
+        color: 0xffdd33,  // Initial sun color (yellowish)
+        emissive: 0xffcc00,  // Glow effect (emissive color)
+        emissiveIntensity: 0.5,
+        transparent: true,  // Allow transparency for smooth fading
+        opacity: 1  // Start fully visible
+    });
+    const moonSphere = new THREE.Mesh(moonGeometry, moonMaterial);
 
+    // Position the sun sphere far away
+    moonSphere.position.set(500, 300, 0);
+    return moonSphere;
+}
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;

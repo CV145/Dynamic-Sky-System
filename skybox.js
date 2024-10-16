@@ -8,7 +8,7 @@ loader.load('./assets/textures/stars.jpg', (texture) => {
     starTexture = texture;
     starTexture.wrapS = THREE.RepeatWrapping;
     starTexture.wrapT = THREE.RepeatWrapping;
-    starTexture.repeat.set(500, 500);  // Adjust texture repeat for better star distribution
+    starTexture.repeat.set(50000, 50000);  // Adjust texture repeat for better star distribution
 
     // Update skysphere shader material with star texture after it's loaded
     if (skysphere && skysphere.material.uniforms.starTexture) {
@@ -95,7 +95,7 @@ void main() {
 
 // Update the skysphere color based on time of day (normalized from 0 to 1)
 export function updateSkysphereColors(normalizedTime, skysphere) {
-    const dayTopColor = new THREE.Color(0x87CEEB);  // Light sky blue for midday (top)
+    const dayTopColor = new THREE.Color(0xa9dff5);  // Light sky blue for midday (top)
     const dayBottomColor = new THREE.Color(0x3b809c);  // Pale blue for midday (bottom)
 
     const nightTopColor = new THREE.Color(0x411e52);  // Dark blue for night (top)
