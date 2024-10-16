@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { createCamera, createControls } from './camera.js';
 import { createScene, createHemisphereLight, createSunLight, createSunSphere, updateSunAppearance } from './scene.js';
 import { setupUI } from './ui.js';
-import { createSkybox, updateSkyboxColors } from './skybox.js';
+import { createSkysphere, updateSkysphereColors } from './skybox.js';
 
-let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, skybox;
+let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, skysphere;
 let timeOfDay = 12;  // Default start time is midday
 
 init();
@@ -72,8 +72,8 @@ function init() {
 
 
     // Create and add the skybox
-    skybox = createSkybox();
-    scene.add(skybox);
+    skysphere = createSkysphere();
+    scene.add(skysphere);
 
     // Set up UI to control time of day (from 6 AM to 6 PM)
     setupUI(onTimeOfDayChanged);
@@ -113,7 +113,7 @@ function updateSunPosition() {
     updateSunAppearance(normalizedTime, sunSphere, sunLight);
 
     // Update the skybox color
-    updateSkyboxColors(normalizedTime, skybox);
+    updateSkysphereColors(normalizedTime, skysphere);
 }
 
 /*function updateBackgroundColor(normalizedTime) {
