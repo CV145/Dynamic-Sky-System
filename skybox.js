@@ -72,10 +72,33 @@ void main() {
     // Sample star texture using UV coordinates
     vec4 starLayer = texture2D(starTexture, uv); //place a color of the star texture at this pixel
 
+    // Control star visibility: fade out stars towards both the top and bottom
+    // Define fade regions
+    float lowerFadeStart = 0.3; // Start fading out at lower heightFactor
+    float lowerFadeEnd = 0.5;   // Completely faded out at lowerFadeEnd
+
+    float upperFadeStart = 0.6; // Start fading out at upper heightFactor
+    float upperFadeEnd = 0.99;   // Completely faded out at upperFadeEnd
+
     // Control star visibility: only show stars in the upper portion of the skysphere (top dome). Result is between 1 and 0
     // Apply fading to the stars based on height (so they fade out towards the bottom of the dome)
-    float fadeFactor = smoothstep(0.4, 0.8, heightFactor); // Adjust the 0.4 to control where the stars fade
+
+    // Calculate lower fade factor (fading out towards bottom)
+    float lowerFade = 1.0;
+    if (heightFactor < lowerFadeEnd) {
+        lowerFade = smoothstep(lowerFadeStart, lowerFadeEnd, heightFactor);
+    }
+
     //Like sky color gradient, heightFactor controls the level at which the star textured pixel appears 
+
+    // Calculate upper fade factor (fading out towards top)
+    float upperFade = 1.0;
+    if (heightFactor > upperFadeStart) {
+        upperFade = smoothstep(upperFadeEnd, upperFadeStart, heightFactor);
+    }
+
+    
+    float fadeFactor = lowerFade * upperFade; // Adjust the 0.4 to control where the stars fade
     
     // Only fade the stars using fadeFactor, while keeping the skyColor untouched
     vec4 finalStarLayer = starLayer * nightFactor * fadeFactor;
