@@ -4,11 +4,11 @@ let starTexture, skysphere;
 
 // Load the star texture
 const loader = new THREE.TextureLoader();
-loader.load('./assets/textures/stars.jpg', (texture) => {
+loader.load('./assets/textures/stars2.jpg', (texture) => {
     starTexture = texture;
     starTexture.wrapS = THREE.RepeatWrapping;
     starTexture.wrapT = THREE.RepeatWrapping;
-    starTexture.repeat.set(50000, 50000);  // Adjust texture repeat for better star distribution
+    starTexture.repeat.set(2, 2);  // Adjust texture repeat for better star distribution
 
     // Update skysphere shader material with star texture after it's loaded
     if (skysphere && skysphere.material.uniforms.starTexture) {
@@ -24,7 +24,9 @@ export function createSkysphere() {
             topColor: { value: new THREE.Color(0x87CEEB) },  // Light sky blue
             bottomColor: { value: new THREE.Color(0x000033) },  // Dark blue for night
             starTexture: { value: starTexture },  // Star texture
-            nightFactor: { value: 0.0 }  // Control how much the stars appear
+            nightFactor: { value: 0.0 },  // Control how much the stars appear
+            scaleU: { value: 2.0 },
+            scaleV: { value: 2.0 }
         },
         vertexShader: `
 //Shader programs run once for each vertex and fragment
@@ -45,6 +47,8 @@ uniform vec3 topColor;
 uniform vec3 bottomColor; //color near the horizon
 uniform sampler2D starTexture;
 uniform float nightFactor; //0 - day, 1 - night (stars appear)
+uniform float scaleU;
+            uniform float scaleV;
 
 //varying variable is passed from the vertex shader
 varying vec3 vWorldPosition; //position of the fragment(pixel) in world coordinates
@@ -61,8 +65,8 @@ void main() {
 
     //3D pixel world position -> spherical coordinates
     // Spherical coordinates to UV mapping for star texture
-    float u = atan(vWorldPosition.z, vWorldPosition.x) / (2.0 * 3.14159265359) + 0.5;
-    float v = acos(vWorldPosition.y) / 3.14159265359;
+    float u = (atan(vWorldPosition.z, vWorldPosition.x) / (2.0 * 3.14159265359) + 0.5) * scaleU;
+    float v = (acos(vWorldPosition.y) / 3.14159265359) * scaleV;
     vec2 uv = vec2(u, v);
 
     // Sample star texture using UV coordinates

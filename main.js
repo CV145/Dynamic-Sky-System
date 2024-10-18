@@ -160,21 +160,36 @@ function updateMoonAppearance(normalizedTime, moonSphere, moonLight) {
 
 
 function createMoonSphere() {
-    // Create a glowing sphere to represent the moon
+    let moonTexture;
+
+    // Create a sphere to represent the moon
     const moonGeometry = new THREE.SphereGeometry(10, 32, 32);
     const moonMaterial = new THREE.MeshPhongMaterial({
-        color: 0xffdd33,  // Initial sun color (yellowish)
-        emissive: 0xffcc00,  // Glow effect (emissive color)
-        emissiveIntensity: 0.5,
+        color: 0xffffff,  // Set to white initially for moon
         transparent: true,  // Allow transparency for smooth fading
         opacity: 1  // Start fully visible
     });
+
     const moonSphere = new THREE.Mesh(moonGeometry, moonMaterial);
 
-    // Position the sun sphere far away
+    // Position the moon sphere in the sky (opposite to the sun)
     moonSphere.position.set(500, 300, 0);
+
+    // Load the moon texture
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('./assets/textures/Moon.jpg', (texture) => {
+        moonTexture = texture;
+
+        // Once the texture is loaded, apply it to the moon sphere material
+        if (moonSphere) {
+            moonSphere.material.map = moonTexture;
+            moonSphere.material.needsUpdate = true;
+        }
+    });
+
     return moonSphere;
 }
+
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
