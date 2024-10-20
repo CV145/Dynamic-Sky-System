@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-let starTexture, skysphere;
+let starTexture, skysphere, noiseTexture;
 
 // Load the star texture
 const loader = new THREE.TextureLoader();
@@ -17,6 +17,19 @@ loader.load('./assets/textures/stars2.jpg', (texture) => {
     }
 });
 
+loader.load('./assets/textures/noise3.png', (texture) => {
+    noiseTexture = texture;
+    noiseTexture.wrapS = THREE.RepeatWrapping;
+    noiseTexture.wrapT = THREE.RepeatWrapping;
+    noiseTexture.repeat.set(4, 4); // Adjust repeat based on desired variation
+
+    // Update skysphere material with noise texture after it's loaded
+    if (skysphere && skysphere.material.uniforms.noiseTexture) {
+        skysphere.material.uniforms.noiseTexture.value = noiseTexture;
+        skysphere.material.needsUpdate = true;
+    }
+});
+
 // Create the skysphere using ShaderMaterial
 export function createSkysphere() {
     const skysphereShader = {
@@ -24,9 +37,10 @@ export function createSkysphere() {
             topColor: { value: new THREE.Color(0x87CEEB) },  // Light sky blue
             bottomColor: { value: new THREE.Color(0x000033) },  // Dark blue for night
             starTexture: { value: starTexture },  // Star texture
+            noiseTexture: { value: noiseTexture },
             nightFactor: { value: 0.0 },  // Control how much the stars appear
-            scaleU: { value: 2.0 },
-            scaleV: { value: 2.0 }
+            scaleU: { value: 20.0 },
+            scaleV: { value: 20.0 }
         },
         vertexShader: `
 //Shader programs run once for each vertex and fragment
@@ -47,6 +61,7 @@ uniform vec3 topColor;
 uniform vec3 bottomColor; //color near the horizon
 uniform sampler2D starTexture;
 uniform float nightFactor; //0 - day, 1 - night (stars appear)
+uniform sampler2D noiseTexture; // Noise texture
 uniform float scaleU;
             uniform float scaleV;
 
@@ -72,13 +87,16 @@ void main() {
     // Sample star texture using UV coordinates
     vec4 starLayer = texture2D(starTexture, uv); //place a color of the star texture at this pixel
 
+    // Sample noise texture to introduce randomness
+    vec4 noiseLayer = texture2D(noiseTexture, uv);
+
     // Control star visibility: fade out stars towards both the top and bottom
     // Define fade regions
-    float lowerFadeStart = 0.3; // Start fading out at lower heightFactor
-    float lowerFadeEnd = 0.5;   // Completely faded out at lowerFadeEnd
+    float lowerFadeStart = 0.43; // Start fading out at lower heightFactor
+    float lowerFadeEnd = 0.6;   // Completely faded out at lowerFadeEnd
 
     float upperFadeStart = 0.6; // Start fading out at upper heightFactor
-    float upperFadeEnd = 0.99;   // Completely faded out at upperFadeEnd
+    float upperFadeEnd = 0.999;   // Completely faded out at upperFadeEnd
 
     // Control star visibility: only show stars in the upper portion of the skysphere (top dome). Result is between 1 and 0
     // Apply fading to the stars based on height (so they fade out towards the bottom of the dome)
@@ -99,6 +117,14 @@ void main() {
 
     
     float fadeFactor = lowerFade * upperFade; // Adjust the 0.4 to control where the stars fade
+
+    // Incorporate noise to break up tiling
+    // You can adjust the influence of noise by scaling it
+    float noiseInfluence = 0.8; // Between 0.0 and 1.0
+    fadeFactor *= (1.0 + noiseInfluence * (noiseLayer.r - 0.5));
+
+    // Ensure fadeFactor stays within [0.0, 1.0]
+    fadeFactor = clamp(fadeFactor, 0.0, 1.0);
     
     // Only fade the stars using fadeFactor, while keeping the skyColor untouched
     vec4 finalStarLayer = starLayer * nightFactor * fadeFactor;
@@ -108,7 +134,9 @@ void main() {
 }
 
         `,
-        side: THREE.BackSide  // Render inside the sphere for a skysphere effect
+        side: THREE.BackSide,  // Render inside the sphere for a skysphere effect
+        blending: THREE.AdditiveBlending, // For smoother star blending
+        transparent: true,              // Required for blending
     };
 
     const skysphereMaterial = new THREE.ShaderMaterial(skysphereShader);

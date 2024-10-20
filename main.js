@@ -42,8 +42,8 @@ function init() {
     sunLight.shadow.camera.far = 1000;    // Ensure this value is large enough
 
     sunLight.shadow.bias = -0.001;  // Negative bias value can help make the shadow appear properly
-    const shadowHelper = new THREE.CameraHelper(sunLight.shadow.camera);
-    scene.add(shadowHelper);
+    //const shadowHelper = new THREE.CameraHelper(sunLight.shadow.camera);
+    //scene.add(shadowHelper);
 
     scene.add(sunLight);
 
@@ -112,7 +112,7 @@ function updateSunPosition() {
     const angle = normalizedTime * Math.PI * 2 - Math.PI / 2;  // Full rotation
 
     // Update sun position based on the angle
-    const distance = 500;
+    const distance = 1000;
     const x = Math.cos(angle) * distance;
     const y = Math.sin(angle) * 300;
     const z = 0;
@@ -146,17 +146,41 @@ function updateSunPosition() {
 }
 
 function updateMoonAppearance(normalizedTime, moonSphere, moonLight) {
-    // Adjust moonlight intensity based on the time of day
-    if (normalizedTime < 6 / 24 || normalizedTime > 19 / 24) {
-        // Fade moon in and out (fully visible at night, dim at day)
-        const moonIntensity = Math.abs(Math.sin((normalizedTime - 0.5) * Math.PI));
-        moonLight.intensity = moonIntensity * 0.2;  // Scale the moon intensity
-        moonSphere.material.opacity = 1;
-    } else {
-        moonLight.intensity = 0;  // No moonlight during the day
-        moonSphere.material.opacity = 0;
+    const fadeDuration = 1 / 24; // 1 hour in normalized time (assuming 24-hour cycle)
+
+    let opacity = 1.0;
+    let moonIntensity = 0.2; // Base intensity when fully visible
+
+    // Fading Out: 5/24 to 6/24 (1 hour before sunrise to sunrise)
+    if (normalizedTime >= (6 - fadeDuration) / 24 && normalizedTime < 6 / 24) {
+        const progress = (normalizedTime - (6 - fadeDuration) / 24) / fadeDuration;
+        opacity = 1.0 - progress; // Decreases from 1.0 to 0.0
+        moonIntensity = 0.2 * (1.0 - progress); // Decreases proportionally
     }
+    // Fully Invisible: 6/24 to 19/24 (daytime)
+    else if (normalizedTime >= 6 / 24 && normalizedTime < 19 / 24) {
+        opacity = 0.0;
+        moonIntensity = 0.0;
+    }
+    // Fading In: 19/24 to 20/24 (sunset to 1 hour after sunset)
+    else if (normalizedTime >= 19 / 24 && normalizedTime < (19 + fadeDuration) / 24) {
+        const progress = (normalizedTime - 19 / 24) / fadeDuration;
+        opacity = progress; // Increases from 0.0 to 1.0
+        moonIntensity = 0.2 * progress; // Increases proportionally
+    }
+    // Fully Visible Night: Before 5/24 or after 20/24
+    else {
+        opacity = 1.0;
+        moonIntensity = 0.2;
+    }
+
+    // Update Moonlight Intensity
+    moonLight.intensity = moonIntensity;
+
+    // Update Moon Sphere Opacity
+    moonSphere.material.opacity = opacity;
 }
+
 
 
 function createMoonSphere() {
@@ -165,18 +189,22 @@ function createMoonSphere() {
     // Create a sphere to represent the moon
     const moonGeometry = new THREE.SphereGeometry(10, 32, 32);
     const moonMaterial = new THREE.MeshPhongMaterial({
-        color: 0xffffff,  // Set to white initially for moon
-        transparent: true,  // Allow transparency for smooth fading
-        opacity: 1  // Start fully visible
+        color: 0xffffff,          // Moon color
+        emissive: 0xffffff,       // Emissive color for glowing effect
+        emissiveIntensity: 1.0,   // Emissive intensity
+        transparent: true,        // Enable transparency
+        opacity: 1.0,             // Initial opacity
+        side: THREE.FrontSide,    // Render front side
+        depthWrite: false,         // Prevent writing to depth buffer
     });
 
     const moonSphere = new THREE.Mesh(moonGeometry, moonMaterial);
 
     // Position the moon sphere in the sky (opposite to the sun)
-    moonSphere.position.set(500, 300, 0);
+    moonSphere.position.set(4000, 300, 0);
 
     // Load the moon texture
-    const textureLoader = new THREE.TextureLoader();
+    /*const textureLoader = new THREE.TextureLoader();
     textureLoader.load('./assets/textures/Moon.jpg', (texture) => {
         moonTexture = texture;
 
@@ -185,7 +213,7 @@ function createMoonSphere() {
             moonSphere.material.map = moonTexture;
             moonSphere.material.needsUpdate = true;
         }
-    });
+    });*/
 
     return moonSphere;
 }
