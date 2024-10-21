@@ -30,3 +30,8 @@ Adding stars to night sky:
 10/16/2024
 
 - Getting a white bottom color during nighttime
+
+---
+10/20/24
+
+I want the clouds to appear the same regardless of camera movement

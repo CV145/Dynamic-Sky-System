@@ -36,10 +36,10 @@ export function createVolumetricClouds(scene) {
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             
             //Assign camera position
-            vOrigin = cameraPos;
+            vOrigin = vec3( inverse( modelMatrix ) * vec4( cameraPos, 1.0 ) ).xyz;
 
             //Compute direction vector from camera to vertex
-            vDirection = position - cameraPos;
+            vDirection = position - vOrigin;
             
             //This is the vertex's position on the screen
             gl_Position = projectionMatrix * mvPosition;
@@ -148,12 +148,11 @@ export function createVolumetricClouds(scene) {
             vec4 ac = vec4(base, 0.0);
             
             for (float t = bounds.x; t < bounds.y; t += delta) {
-                vec3 samplePoint = p + rayDir * delta;
-                float d = sample1(samplePoint);
+                float d = sample1(p + 0.5);
                 
                 d = smoothstep(threshold - range, threshold + range, d) * opacity;
                 
-                float col = shading(samplePoint) * 3.0 + ((samplePoint.x + samplePoint.y) * 0.25) + 0.2;
+                float col = shading( p + 0.5 ) * 3.0 + ( ( p.x + p.y ) * 0.25 ) + 0.2;
                 
                 ac.rgb += (1.0 - ac.a) * d * col;
                 ac.a += (1.0 - ac.a) * d;
@@ -181,7 +180,7 @@ export function createVolumetricClouds(scene) {
         for (let y = 0; y < size; y++) {
             for (let x = 0; x < size; x++) {
                 const d = 1.0 - vector.set(x, y, z).subScalar(size / 2).divideScalar(size).length();
-                data[i] = (128 + 128 * perlin.noise(x * scale / 1.5, y * scale, z * scale / 1.5)) * d * d;
+                data[i] = (128 + 128 * perlin.noise(x * scale, y * scale, z * scale)) * d * d; // Uniform noise scaling
                 i++;
             }
         }
@@ -210,15 +209,15 @@ export function createVolumetricClouds(scene) {
         },
         vertexShader,
         fragmentShader,
-        side: THREE.BackSide,
+        side: THREE.DoubleSide,
         transparent: true
     });
 
     // Create the cloud geometry
     const geometry = new THREE.BoxGeometry(1, 1, 1);
     const cloudMesh = new THREE.Mesh(geometry, material);
-    cloudMesh.position.set(0, 0, 0); // Adjust height as needed
-    cloudMesh.scale.set(1000, 500, 500);
+    cloudMesh.position.set(0, 0, -200); // Adjust height as needed
+    cloudMesh.scale.set(500, 300, 200);
     scene.add(cloudMesh);
 
     // Update uniforms before rendering
