@@ -40,7 +40,9 @@ export function createSkysphere() {
             noiseTexture: { value: noiseTexture },
             nightFactor: { value: 0.0 },  // Control how much the stars appear
             scaleU: { value: 20.0 },
-            scaleV: { value: 20.0 }
+            scaleV: { value: 20.0 },
+            noiseOffset: { value: new THREE.Vector2(0.0, 0.0) }, // Initial noise offset
+            noiseSpeed: { value: 0.01 }, // Noise animation speed
         },
         vertexShader: `
 //Shader programs run once for each vertex and fragment
@@ -63,7 +65,10 @@ uniform sampler2D starTexture;
 uniform float nightFactor; //0 - day, 1 - night (stars appear)
 uniform sampler2D noiseTexture; // Noise texture
 uniform float scaleU;
-            uniform float scaleV;
+uniform float scaleV;
+
+uniform vec2 noiseOffset; // Current noise offset
+uniform float noiseSpeed; // Speed of noise animation
 
 //varying variable is passed from the vertex shader
 varying vec3 vWorldPosition; //position of the fragment(pixel) in world coordinates
@@ -84,11 +89,14 @@ void main() {
     float v = (acos(vWorldPosition.y) / 3.14159265359) * scaleV;
     vec2 uv = vec2(u, v);
 
+    // Apply noiseOffset to UV coordinates for animation
+    vec2 animatedUV = uv + noiseOffset;
+
     // Sample star texture using UV coordinates
-    vec4 starLayer = texture2D(starTexture, uv); //place a color of the star texture at this pixel
+    vec4 starLayer = texture2D(starTexture, animatedUV); //place a color of the star texture at this pixel
 
     // Sample noise texture to introduce randomness
-    vec4 noiseLayer = texture2D(noiseTexture, uv);
+    vec4 noiseLayer = texture2D(noiseTexture, animatedUV);
 
     // Control star visibility: fade out stars towards both the top and bottom
     // Define fade regions

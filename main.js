@@ -3,9 +3,13 @@ import { createCamera, createControls } from './camera.js';
 import { createScene, createHemisphereLight, createSunLight, createSunSphere, updateSunAppearance } from './scene.js';
 import { setupUI } from './ui.js';
 import { createSkysphere, updateSkysphereColors } from './skybox.js';
+import { createVolumetricClouds } from './clouds.js';
 
-let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, skysphere, moonLight, moonSphere;
+let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, skysphere, moonLight, moonSphere, cloudMesh;
 let timeOfDay = 12;  // Default start time is midday
+
+const clock = new THREE.Clock();
+
 
 init();
 animate();
@@ -93,6 +97,9 @@ function init() {
     // Create and add the skybox
     skysphere = createSkysphere();
     scene.add(skysphere);
+
+    // Create and add volumetric clouds
+    cloudMesh = createVolumetricClouds(scene);
 
     // Set up UI to control time of day (from 6 AM to 6 PM)
     setupUI(onTimeOfDayChanged);
@@ -228,5 +235,23 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
     controls.update(); // Required when damping is enabled
+
+    const delta = clock.getDelta(); // Time elapsed since last frame in seconds
+
+    // Animate the noiseOffset to create twinkling effect
+    if (skysphere && skysphere.material.uniforms.noiseOffset) {
+        // Increment the noiseOffset based on noiseSpeed and deltaTime
+        skysphere.material.uniforms.noiseOffset.value.x += skysphere.material.uniforms.noiseSpeed.value * delta;
+        skysphere.material.uniforms.noiseOffset.value.y += skysphere.material.uniforms.noiseSpeed.value * delta;
+
+        // Wrap around the noiseOffset to prevent UV overflow
+        if (skysphere.material.uniforms.noiseOffset.value.x > 1.0) {
+            skysphere.material.uniforms.noiseOffset.value.x -= 1.0;
+        }
+        if (skysphere.material.uniforms.noiseOffset.value.y > 1.0) {
+            skysphere.material.uniforms.noiseOffset.value.y -= 1.0;
+        }
+    }
+
     renderer.render(scene, camera);
 }
