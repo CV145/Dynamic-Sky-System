@@ -38,12 +38,12 @@ function init() {
     sunLight.castShadow = true;  // Enable shadows for the sunlight
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.camera.left = -100;   // Half the width of the plane
-    sunLight.shadow.camera.right = 100;
-    sunLight.shadow.camera.top = 100;     // Half the height of the plane
-    sunLight.shadow.camera.bottom = -100;
+    sunLight.shadow.camera.left = -1000;   // Half the width of the plane
+    sunLight.shadow.camera.right = 1000;
+    sunLight.shadow.camera.top = 1000;     // Half the height of the plane
+    sunLight.shadow.camera.bottom = -1000;
     sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 1000;    // Ensure this value is large enough
+    sunLight.shadow.camera.far = 10000;    // Ensure this value is large enough
 
     sunLight.shadow.bias = -0.001;  // Negative bias value can help make the shadow appear properly
     //const shadowHelper = new THREE.CameraHelper(sunLight.shadow.camera);
@@ -60,12 +60,12 @@ function init() {
     moonLight.castShadow = true;
     moonLight.shadow.mapSize.width = 2048;
     moonLight.shadow.mapSize.height = 2048;
-    moonLight.shadow.camera.left = -100;
-    moonLight.shadow.camera.right = 100;
-    moonLight.shadow.camera.top = 100;
-    moonLight.shadow.camera.bottom = -100;
+    moonLight.shadow.camera.left = -1000;
+    moonLight.shadow.camera.right = 1000;
+    moonLight.shadow.camera.top = 1000;
+    moonLight.shadow.camera.bottom = -1000;
     moonLight.shadow.camera.near = 0.5;
-    moonLight.shadow.camera.far = 1000;
+    moonLight.shadow.camera.far = 10000;
     moonLight.shadow.bias = -0.001;
     scene.add(moonLight);
 

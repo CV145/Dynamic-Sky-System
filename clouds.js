@@ -280,4 +280,22 @@ export function createVolumetricClouds(scene, numberOfClouds = 10) {
             material.uniforms.frame.value += 1.0;
         };
     }
+
+    /*const material = baseMaterial.clone();
+    // Create the cloud mesh
+    const cloudMesh = new THREE.Mesh(geometry, material);
+
+    // Assign a random position within the specified range
+    cloudMesh.position.set(0, -500, 0);
+
+    // Assign a random scale within the specified min and max
+    cloudMesh.scale.set(10000, 50, 10000);
+
+    // Update uniforms before rendering
+    cloudMesh.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+        material.uniforms.cameraPos.value.copy(camera.position);
+        material.uniforms.frame.value += 1.0;
+    };
+
+    scene.add(cloudMesh);*/
 }
