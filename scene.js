@@ -35,7 +35,7 @@ export function createHemisphereLight() {
 
 export function createSunSphere() {
     // Create a glowing sphere to represent the sun
-    const sunGeometry = new THREE.SphereGeometry(10, 32, 32);  // Smaller sun sphere
+    const sunGeometry = new THREE.SphereGeometry(100, 32, 32);  // Smaller sun sphere
     const sunMaterial = new THREE.MeshPhongMaterial({
         color: 0xffdd33,  // Initial sun color (yellowish)
         emissive: 0xffcc00,  // Glow effect (emissive color)

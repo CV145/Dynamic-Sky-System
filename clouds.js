@@ -3,7 +3,7 @@
 import * as THREE from 'three'; //The core Three.js library
 import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js'; //A utility from Three.js addons that provides Perlin noise generation, useful for creating natural-looking patterns.
 
-export function createVolumetricClouds(scene) {
+export function createVolumetricClouds(scene, numberOfClouds = 10) {
     // Shader code as strings
     const vertexShader = `
         //Specifies high precision for floating-point calculations
@@ -130,8 +130,10 @@ export function createVolumetricClouds(scene) {
             vec3 rayOrigin = vOrigin;
             vec2 bounds = hitBox(rayOrigin, rayDir);
             
+            //Discard if no intersection
             if (bounds.x > bounds.y) discard;
             
+            //Clamp the starting point to prevent marching outside
             bounds.x = max(bounds.x, 0.0);
             
             vec3 p = rayOrigin + bounds.x * rayDir;
@@ -153,7 +155,9 @@ export function createVolumetricClouds(scene) {
                 d = smoothstep(threshold - range, threshold + range, d) * opacity;
                 
                 float col = shading( p + 0.5 ) * 3.0 + ( ( p.x + p.y ) * 0.25 ) + 0.2;
+                col = max(col, 0.0); //Ensure color is not negative
                 
+                //Accumulate color and opacity
                 ac.rgb += (1.0 - ac.a) * d * col;
                 ac.a += (1.0 - ac.a) * d;
                 
@@ -195,7 +199,7 @@ export function createVolumetricClouds(scene) {
     texture.needsUpdate = true;
 
     // Define the shader material
-    const material = new THREE.RawShaderMaterial({
+    const baseMaterial = new THREE.RawShaderMaterial({
         glslVersion: THREE.GLSL3,
         uniforms: {
             base: { value: new THREE.Color(0x798aa0) },
@@ -210,21 +214,70 @@ export function createVolumetricClouds(scene) {
         vertexShader,
         fragmentShader,
         side: THREE.DoubleSide,
-        transparent: true
+        transparent: true,
+        depthWrite: false,
     });
 
-    // Create the cloud geometry
+    // Create the cloud geometry (unit cube)
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const cloudMesh = new THREE.Mesh(geometry, material);
-    cloudMesh.position.set(0, 0, -200); // Adjust height as needed
-    cloudMesh.scale.set(500, 300, 200);
-    scene.add(cloudMesh);
 
-    // Update uniforms before rendering
-    cloudMesh.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
-        material.uniforms.cameraPos.value.copy(camera.position);
-        material.uniforms.frame.value++;
-    };
+    // Function to generate random positions within a specified range
+    function getRandomPosition(range) {
+        const x = (Math.random() - 0.5) * range.x;
+        const y = (Math.random() - 0.5) * range.y;
+        const z = (Math.random() - 0.5) * range.z;
+        return new THREE.Vector3(x, y, z);
+    }
 
-    return cloudMesh;
+
+    // Function to generate random scale within specified min and max values
+    function getRandomScale(minScale, maxScale) {
+        const scaleX = THREE.MathUtils.lerp(minScale.x, maxScale.x, Math.random());
+        const scaleY = THREE.MathUtils.lerp(minScale.y, maxScale.y, Math.random());
+        const scaleZ = THREE.MathUtils.lerp(minScale.z, maxScale.z, Math.random());
+        return new THREE.Vector3(scaleX, scaleY, scaleZ);
+    }
+
+    // Define the range for cloud positions (e.g., within a sphere of radius 1000)
+    const positionRange = new THREE.Vector3(5000, 5000, 2000);
+
+    // Define minimum and maximum scales for the clouds
+    const minScale = new THREE.Vector3(300, 200, 150);
+    const maxScale = new THREE.Vector3(1000, 700, 550);
+
+    // Loop to create multiple cloud instances
+    for (let i = 0; i < numberOfClouds; i++) {
+        // Clone the base material for individual uniforms
+        const material = baseMaterial.clone();
+
+        // Optionally, vary the base color for each cloud for diversity
+        const colorVariation = new THREE.Color();
+        colorVariation.setHSL(Math.random() * 0.1 + 0.5, 0.5, 0.6); // Adjust hues as needed
+        material.uniforms.base.value = colorVariation;
+
+        // Create the cloud mesh
+        const cloudMesh = new THREE.Mesh(geometry, material);
+
+        // Assign a random position within the specified range
+        cloudMesh.position.copy(getRandomPosition(positionRange));
+
+        // Assign a random scale within the specified min and max
+        cloudMesh.scale.copy(getRandomScale(minScale, maxScale));
+
+        // Optionally, randomize rotation for added realism
+        cloudMesh.rotation.set(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
+        );
+
+        // Add the cloud mesh to the scene
+        scene.add(cloudMesh);
+
+        // Update uniforms before rendering
+        cloudMesh.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+            material.uniforms.cameraPos.value.copy(camera.position);
+            material.uniforms.frame.value += 1.0;
+        };
+    }
 }

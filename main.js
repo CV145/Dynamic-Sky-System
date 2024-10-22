@@ -99,7 +99,7 @@ function init() {
     scene.add(skysphere);
 
     // Create and add volumetric clouds
-    cloudMesh = createVolumetricClouds(scene);
+    createVolumetricClouds(scene, 25);
 
     // Set up UI to control time of day (from 6 AM to 6 PM)
     setupUI(onTimeOfDayChanged);
@@ -119,9 +119,9 @@ function updateSunPosition() {
     const angle = normalizedTime * Math.PI * 2 - Math.PI / 2;  // Full rotation
 
     // Update sun position based on the angle
-    const distance = 1000;
+    const distance = 5000;
     const x = Math.cos(angle) * distance;
-    const y = Math.sin(angle) * 300;
+    const y = Math.sin(angle) * distance;
     const z = 0;
 
     // Move the DirectionalLight (sunlight)
@@ -135,7 +135,7 @@ function updateSunPosition() {
     // Position the moon on the opposite side of the sky
     const moonAngle = angle + Math.PI;  // Opposite side to the sun
     const moonX = Math.cos(moonAngle) * distance;
-    const moonY = Math.sin(moonAngle) * 300;
+    const moonY = Math.sin(moonAngle) * distance;
 
     moonLight.position.set(moonX, moonY, z);
     moonLight.updateMatrixWorld();
@@ -194,7 +194,7 @@ function createMoonSphere() {
     let moonTexture;
 
     // Create a sphere to represent the moon
-    const moonGeometry = new THREE.SphereGeometry(10, 32, 32);
+    const moonGeometry = new THREE.SphereGeometry(60, 32, 32);
     const moonMaterial = new THREE.MeshPhongMaterial({
         color: 0xffffff,          // Moon color
         emissive: 0xffffff,       // Emissive color for glowing effect
