@@ -7,8 +7,46 @@ import { createVolumetricClouds } from './clouds.js';
 
 let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, skysphere, moonLight, moonSphere, cloudMesh;
 let timeOfDay = 12;  // Default start time is midday
-
+let cloudMeshes = [];
 const clock = new THREE.Clock();
+
+
+function resetCloud(cloudMesh) {
+    // Reset age
+    cloudMesh.userData.age = 0;
+
+    // Reset position
+    cloudMesh.position.copy(getRandomPosition(positionRange));
+
+    // Reset initial scale
+    const newScale = getRandomScale(minScale, maxScale);
+    cloudMesh.scale.copy(newScale);
+    cloudMesh.userData.initialScale = newScale.clone();
+
+    // Reset threshold
+    cloudMesh.material.uniforms.threshold.value = 0.25; // Initial threshold value
+
+    // Reset opacity offset
+    cloudMesh.userData.opacityOffset = Math.random() * Math.PI * 2;
+
+    // Reset drift speed and direction if desired
+    cloudMesh.userData.driftSpeed.set(
+        THREE.MathUtils.randFloat(5, 15),
+        0,
+        0
+    );
+
+    // Reset lifeTime
+    cloudMesh.userData.lifeTime = THREE.MathUtils.randFloat(20, 40);
+
+    // Optionally reset rotation
+    cloudMesh.rotation.set(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
+    );
+}
+
 
 
 init();
@@ -99,13 +137,35 @@ function init() {
     scene.add(skysphere);
 
     // Create and add volumetric clouds
-    createVolumetricClouds(scene, 25);
+    cloudMeshes = createVolumetricClouds(scene, 25);
 
     // Set up UI to control time of day (from 6 AM to 6 PM)
     setupUI(onTimeOfDayChanged);
 
     // Resize listener
     window.addEventListener('resize', onWindowResize);
+
+    // Initialize properties for each cloud mesh
+    cloudMeshes.forEach(cloudMesh => {
+        // Assign a random drift speed
+        cloudMesh.userData.driftSpeed = new THREE.Vector3(
+            THREE.MathUtils.randFloat(5, 15), // Random speed in x-direction
+            0,
+            0
+        );
+
+        // Assign a random opacity offset for variation
+        cloudMesh.userData.opacityOffset = Math.random() * Math.PI * 2;
+
+        // Assign random min and max opacity
+        cloudMesh.userData.minOpacity = THREE.MathUtils.randFloat(0.1, 0.3);
+        cloudMesh.userData.maxOpacity = THREE.MathUtils.randFloat(0.4, 0.6);
+
+        cloudMesh.userData.lifeTime = THREE.MathUtils.randFloat(60, 120); // Total time before cloud resets (in seconds)
+        cloudMesh.userData.age = 0; // Initialize age
+        cloudMesh.userData.initialScale = cloudMesh.scale.clone(); // Store initial scale
+        cloudMesh.userData.dispersalExponent = THREE.MathUtils.randFloat(1, 3);
+    });
 }
 
 function onTimeOfDayChanged(value) {
@@ -237,6 +297,51 @@ function animate() {
     controls.update(); // Required when damping is enabled
 
     const delta = clock.getDelta(); // Time elapsed since last frame in seconds
+    const elapsedTime = clock.getElapsedTime(); // Total elapsed time
+
+    // Update clouds
+    cloudMeshes.forEach(cloudMesh => {
+        // Update time uniform
+        cloudMesh.material.uniforms.time.value = elapsedTime;
+
+        // Update cloud age
+        cloudMesh.userData.age += delta;
+        const ageRatio = cloudMesh.userData.age / cloudMesh.userData.lifeTime; // 0 to 1
+
+        // Reduce scale over time
+        const scaleFactor = THREE.MathUtils.lerp(1, 0, ageRatio);
+        cloudMesh.scale.copy(cloudMesh.userData.initialScale.clone().multiplyScalar(scaleFactor));
+
+        // Adjust threshold to disperse cloud
+        const threshold = THREE.MathUtils.lerp(
+            0.25, // Initial threshold value
+            1.0, // Max threshold
+            Math.pow(ageRatio, cloudMesh.userData.dispersalExponent) // Use exponent to control curve
+        );
+        cloudMesh.material.uniforms.threshold.value = threshold;
+
+        // Modulate opacity over time
+        const opacityCycle = Math.sin(elapsedTime * 0.1 + cloudMesh.userData.opacityOffset) * 0.5 + 0.5;
+        const opacity = THREE.MathUtils.lerp(
+            cloudMesh.userData.minOpacity,
+            cloudMesh.userData.maxOpacity,
+            opacityCycle
+        );
+        cloudMesh.material.uniforms.opacity.value = opacity;
+
+        // Update position to simulate drifting
+        cloudMesh.position.addScaledVector(cloudMesh.userData.driftSpeed, delta);
+
+        // Wrap clouds when they move beyond the boundary
+        if (cloudMesh.position.x > 5000) {
+            cloudMesh.position.x = -5000;
+        }
+
+        // Reset cloud when its lifeTime is over
+        if (cloudMesh.userData.age >= cloudMesh.userData.lifeTime) {
+            resetCloud(cloudMesh);
+        }
+    });
 
     // Animate the noiseOffset to create twinkling effect
     if (skysphere && skysphere.material.uniforms.noiseOffset) {

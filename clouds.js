@@ -73,6 +73,8 @@ export function createVolumetricClouds(scene, numberOfClouds = 10) {
         //Current animation frame
         uniform float frame;
 
+        uniform float time;
+
         in vec3 vOrigin; //Origin of ray (camera position)
         in vec3 vDirection; //Direction of ray from camera through vertex
 
@@ -109,6 +111,8 @@ export function createVolumetricClouds(scene, numberOfClouds = 10) {
 
         //Sample the 3D texture at a given point to get the density value
         float sample1(vec3 p) {
+            //The coordinate is modified with time to animate the noise
+            vec3 coord = p + vec3(time * 0.01);
             return texture(map, p).r;
         }
 
@@ -209,7 +213,8 @@ export function createVolumetricClouds(scene, numberOfClouds = 10) {
             opacity: { value: 0.25 },
             range: { value: 0.1 },
             steps: { value: 100 },
-            frame: { value: 0 }
+            frame: { value: 0 },
+            time: { value: 0 }
         },
         vertexShader,
         fragmentShader,
@@ -245,6 +250,9 @@ export function createVolumetricClouds(scene, numberOfClouds = 10) {
     const minScale = new THREE.Vector3(300, 200, 150);
     const maxScale = new THREE.Vector3(1000, 700, 550);
 
+    //Array to hold cloud meshes
+    const cloudMeshes = [];
+
     // Loop to create multiple cloud instances
     for (let i = 0; i < numberOfClouds; i++) {
         // Clone the base material for individual uniforms
@@ -274,10 +282,12 @@ export function createVolumetricClouds(scene, numberOfClouds = 10) {
         // Add the cloud mesh to the scene
         scene.add(cloudMesh);
 
+        // Store the mesh for later updates
+        cloudMeshes.push(cloudMesh);
+
         // Update uniforms before rendering
         cloudMesh.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
             material.uniforms.cameraPos.value.copy(camera.position);
-            material.uniforms.frame.value += 1.0;
         };
     }
 
@@ -298,4 +308,6 @@ export function createVolumetricClouds(scene, numberOfClouds = 10) {
     };
 
     scene.add(cloudMesh);*/
+
+    return cloudMeshes;
 }
