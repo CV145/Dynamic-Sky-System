@@ -209,8 +209,8 @@ export function createVolumetricClouds(scene, numberOfClouds = 10) {
             base: { value: new THREE.Color(0x798aa0) },
             map: { value: texture },
             cameraPos: { value: new THREE.Vector3() },
-            threshold: { value: 0.25 },
-            opacity: { value: 0.25 },
+            threshold: { value: 1.0 }, //1 = invisible cloud
+            opacity: { value: 0 },
             range: { value: 0.1 },
             steps: { value: 100 },
             frame: { value: 0 },

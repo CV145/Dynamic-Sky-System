@@ -10,41 +10,118 @@ let timeOfDay = 12;  // Default start time is midday
 let cloudMeshes = [];
 const clock = new THREE.Clock();
 
+// Define the range for cloud positions
+const positionRange = new THREE.Vector3(5000, 5000, 2000);
 
-function resetCloud(cloudMesh) {
+// Define minimum and maximum scales for the clouds
+const minScale = new THREE.Vector3(300, 200, 150);
+const maxScale = new THREE.Vector3(1000, 700, 550);
+
+// Function to generate random positions within a specified range
+function getRandomPosition(range) {
+    const x = (Math.random() - 0.5) * range.x;
+    const y = (Math.random() - 0.5) * range.y;
+    const z = (Math.random() - 0.5) * range.z;
+    return new THREE.Vector3(x, y, z);
+}
+
+// Function to generate random scale within specified min and max values
+function getRandomScale(minScale, maxScale) {
+    const scaleX = THREE.MathUtils.lerp(minScale.x, maxScale.x, Math.random());
+    const scaleY = THREE.MathUtils.lerp(minScale.y, maxScale.y, Math.random());
+    const scaleZ = THREE.MathUtils.lerp(minScale.z, maxScale.z, Math.random());
+    return new THREE.Vector3(scaleX, scaleY, scaleZ);
+}
+
+
+function resetCloud(cloudMesh, randomizeAge = false) {
+    // Reset lifeTime
+    cloudMesh.userData.lifeTime = THREE.MathUtils.randFloat(20, 40);
+
+    // Define formationTime and dispersalTime
+    cloudMesh.userData.formationTime = cloudMesh.userData.lifeTime * 0.5; // 50% of lifeTime
+    cloudMesh.userData.dispersalTime = cloudMesh.userData.lifeTime * 0.2; // 20% of lifeTime
+
     // Reset age
-    cloudMesh.userData.age = 0;
+    cloudMesh.userData.age = randomizeAge ? Math.random() * cloudMesh.userData.lifeTime : 0;
 
     // Reset position
     cloudMesh.position.copy(getRandomPosition(positionRange));
 
     // Reset initial scale
-    const newScale = getRandomScale(minScale, maxScale);
-    cloudMesh.scale.copy(newScale);
-    cloudMesh.userData.initialScale = newScale.clone();
+    cloudMesh.userData.initialScale = getRandomScale(minScale, maxScale);
+    cloudMesh.userData.initialThreshold = 0.25; // Store initial threshold
 
-    // Reset threshold
-    cloudMesh.material.uniforms.threshold.value = 0.25; // Initial threshold value
+    // Reset scale and threshold based on age
+    updateCloudProperties(cloudMesh);
 
     // Reset opacity offset
     cloudMesh.userData.opacityOffset = Math.random() * Math.PI * 2;
 
-    // Reset drift speed and direction if desired
-    cloudMesh.userData.driftSpeed.set(
+    // Initialize drift speed and direction
+    cloudMesh.userData.driftSpeed = new THREE.Vector3(
         THREE.MathUtils.randFloat(5, 15),
         0,
         0
     );
 
-    // Reset lifeTime
-    cloudMesh.userData.lifeTime = THREE.MathUtils.randFloat(20, 40);
 
-    // Optionally reset rotation
-    cloudMesh.rotation.set(
-        Math.random() * Math.PI,
-        Math.random() * Math.PI,
-        Math.random() * Math.PI
-    );
+    // Reset dispersalExponent
+    cloudMesh.userData.dispersalExponent = THREE.MathUtils.randFloat(1, 3);
+}
+
+function updateCloudProperties(cloudMesh) {
+    const age = cloudMesh.userData.age;
+    const lifeTime = cloudMesh.userData.lifeTime;
+    const formationTime = cloudMesh.userData.formationTime;
+    const dispersalTime = cloudMesh.userData.dispersalTime;
+    const initialScale = cloudMesh.userData.initialScale;
+    const initialThreshold = cloudMesh.userData.initialThreshold;
+    const dispersalExponent = cloudMesh.userData.dispersalExponent;
+
+    if (age < formationTime) {
+        // Formation phase
+        const formationAgeRatio = age / formationTime;
+        const easedRatio = Math.pow(formationAgeRatio, 0.5); // Slower initial decrease
+
+        // Scale increases from 0 to initialScale
+        const scaleFactor = easedRatio;
+        cloudMesh.scale.copy(initialScale.clone().multiplyScalar(scaleFactor));
+
+        // Threshold decreases from 1.0 to initialThreshold
+        const threshold = THREE.MathUtils.lerp(
+            1.0, // Start value
+            initialThreshold, // End value
+            easedRatio
+        );
+        cloudMesh.material.uniforms.threshold.value = threshold;
+
+    } else if (age < (lifeTime - dispersalTime)) {
+        // Stable phase
+        cloudMesh.scale.copy(initialScale);
+        cloudMesh.material.uniforms.threshold.value = initialThreshold;
+
+    } else if (age < lifeTime) {
+        // Dispersal phase
+        const dispersalAge = age - (lifeTime - dispersalTime);
+        const dispersalAgeRatio = dispersalAge / dispersalTime;
+
+        // Scale decreases from initialScale to 0
+        const scaleFactor = 1 - dispersalAgeRatio;
+        cloudMesh.scale.copy(initialScale.clone().multiplyScalar(scaleFactor));
+
+        // Threshold increases from initialThreshold to 1.0
+        const threshold = THREE.MathUtils.lerp(
+            initialThreshold,
+            1.0,
+            Math.pow(dispersalAgeRatio, dispersalExponent)
+        );
+        cloudMesh.material.uniforms.threshold.value = threshold;
+
+    } else {
+        // Reset the cloud when lifetime is exceeded
+        resetCloud(cloudMesh);
+    }
 }
 
 
@@ -138,6 +215,11 @@ function init() {
 
     // Create and add volumetric clouds
     cloudMeshes = createVolumetricClouds(scene, 25);
+
+    // Initialize properties for each cloud mesh
+    cloudMeshes.forEach(cloudMesh => {
+        resetCloud(cloudMesh, true); // Initialize cloud with random age
+    });
 
     // Set up UI to control time of day (from 6 AM to 6 PM)
     setupUI(onTimeOfDayChanged);
@@ -301,45 +383,48 @@ function animate() {
 
     // Update clouds
     cloudMeshes.forEach(cloudMesh => {
+        // Update age
+        cloudMesh.userData.age += delta;
+
+        // Update cloud properties based on age
+        updateCloudProperties(cloudMesh);
+
         // Update time uniform
         cloudMesh.material.uniforms.time.value = elapsedTime;
 
-        // Update cloud age
-        cloudMesh.userData.age += delta;
-        const ageRatio = cloudMesh.userData.age / cloudMesh.userData.lifeTime; // 0 to 1
-
-        // Reduce scale over time
-        const scaleFactor = THREE.MathUtils.lerp(1, 0, ageRatio);
-        cloudMesh.scale.copy(cloudMesh.userData.initialScale.clone().multiplyScalar(scaleFactor));
-
-        // Adjust threshold to disperse cloud
-        const threshold = THREE.MathUtils.lerp(
-            0.25, // Initial threshold value
-            1.0, // Max threshold
-            Math.pow(ageRatio, cloudMesh.userData.dispersalExponent) // Use exponent to control curve
-        );
-        cloudMesh.material.uniforms.threshold.value = threshold;
-
         // Modulate opacity over time
         const opacityCycle = Math.sin(elapsedTime * 0.1 + cloudMesh.userData.opacityOffset) * 0.5 + 0.5;
-        const opacity = THREE.MathUtils.lerp(
+        let opacity = THREE.MathUtils.lerp(
             cloudMesh.userData.minOpacity,
             cloudMesh.userData.maxOpacity,
             opacityCycle
         );
-        cloudMesh.material.uniforms.opacity.value = opacity;
 
-        // Update position to simulate drifting
-        cloudMesh.position.addScaledVector(cloudMesh.userData.driftSpeed, delta);
+        // Adjust opacity during formation and dispersal
+        const age = cloudMesh.userData.age;
+        const formationTime = cloudMesh.userData.formationTime;
+        const dispersalTime = cloudMesh.userData.dispersalTime;
+        const lifeTime = cloudMesh.userData.lifeTime;
 
-        // Wrap clouds when they move beyond the boundary
-        if (cloudMesh.position.x > 5000) {
-            cloudMesh.position.x = -5000;
+        if (age < formationTime) {
+            // Fade in during formation
+            const formationAgeRatio = age / formationTime;
+            opacity *= formationAgeRatio;
+        } else if (age > (lifeTime - dispersalTime)) {
+            // Fade out during dispersal
+            const dispersalAge = age - (lifeTime - dispersalTime);
+            const dispersalAgeRatio = dispersalAge / dispersalTime;
+            opacity *= (1 - dispersalAgeRatio);
         }
 
-        // Reset cloud when its lifeTime is over
-        if (cloudMesh.userData.age >= cloudMesh.userData.lifeTime) {
-            resetCloud(cloudMesh);
+        cloudMesh.material.uniforms.opacity.value = opacity;
+
+        // Drift movement
+        cloudMesh.position.addScaledVector(cloudMesh.userData.driftSpeed, delta);
+
+        // Wrap position
+        if (cloudMesh.position.x > 5000) {
+            cloudMesh.position.x = -5000;
         }
     });
 
