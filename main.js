@@ -3,11 +3,14 @@ import { createCamera, createControls } from './camera.js';
 import { createScene, createHemisphereLight, createSunLight, createSunSphere, updateSunAppearance } from './scene.js';
 import { setupUI } from './ui.js';
 import { createSkysphere, updateSkysphereColors } from './skybox.js';
-import { createVolumetricClouds } from './clouds.js';
+import { createVolumetricClouds, baseMaterial } from './clouds.js';
 
 let camera, controls, scene, renderer, sunLight, sunSphere, hemisphereLight, cube, skysphere, moonLight, moonSphere, cloudMesh;
 let timeOfDay = 12;  // Default start time is midday
 let cloudMeshes = [];
+let isRaining = false;
+let rainParticles;
+let largeRainCloud;
 const clock = new THREE.Clock();
 
 // Define the range for cloud positions
@@ -32,6 +35,42 @@ function getRandomScale(minScale, maxScale) {
     const scaleZ = THREE.MathUtils.lerp(minScale.z, maxScale.z, Math.random());
     return new THREE.Vector3(scaleX, scaleY, scaleZ);
 }
+
+function createLargeRainCloud() {
+    // Create a new cloud mesh for the large rain cloud
+    const material = baseMaterial.clone();
+
+    // Set initial threshold to 1.0 (invisible)
+    material.uniforms.threshold.value = 1.0;
+
+    // Create the cloud mesh
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    largeRainCloud = new THREE.Mesh(geometry, material);
+
+    // Position at the top
+    largeRainCloud.position.set(0, 4000, 0); // Centered at the top
+
+    // Scale up on X and Z axes
+    largeRainCloud.scale.set(10000, 1000, 10000);
+
+    // Set base color to dark grey
+    material.uniforms.base.value = new THREE.Color(0x555555);
+
+    // Initialize transition properties
+    largeRainCloud.userData.isAccumulating = true;
+    largeRainCloud.userData.transitionProgress = 0;
+    largeRainCloud.userData.initialThreshold = 1.0;
+    largeRainCloud.userData.targetThreshold = 0.25; // Adjust as needed
+
+    // Add the cloud mesh to the scene
+    scene.add(largeRainCloud);
+
+    // Update uniforms before rendering
+    largeRainCloud.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+        material.uniforms.cameraPos.value.copy(camera.position);
+    };
+}
+
 
 
 function resetCloud(cloudMesh, randomizeAge = false) {
@@ -70,7 +109,7 @@ function resetCloud(cloudMesh, randomizeAge = false) {
     cloudMesh.userData.dispersalExponent = THREE.MathUtils.randFloat(1, 3);
 }
 
-function updateCloudProperties(cloudMesh) {
+function updateCloudProperties(cloudMesh, isRaining) {
     const age = cloudMesh.userData.age;
     const lifeTime = cloudMesh.userData.lifeTime;
     const formationTime = cloudMesh.userData.formationTime;
@@ -78,6 +117,11 @@ function updateCloudProperties(cloudMesh) {
     const initialScale = cloudMesh.userData.initialScale;
     const initialThreshold = cloudMesh.userData.initialThreshold;
     const dispersalExponent = cloudMesh.userData.dispersalExponent;
+
+    if (isRaining) {
+        // During rain, prevent clouds from forming or resetting
+        return;
+    }
 
     if (age < formationTime) {
         // Formation phase
@@ -124,6 +168,138 @@ function updateCloudProperties(cloudMesh) {
     }
 }
 
+function enableRain() {
+    if (isRaining) return;
+
+    isRaining = true;
+
+    cloudMeshes.forEach(cloudMesh => {
+        // Dissolve existing clouds
+        cloudMesh.userData.isDissolving = true;
+        cloudMesh.userData.transitionProgress = 0;
+
+        // Store initial properties
+        cloudMesh.userData.initialThreshold = cloudMesh.material.uniforms.threshold.value;
+        cloudMesh.userData.targetThreshold = 1.0; // Increase threshold to dissolve
+
+        cloudMesh.userData.initialScale = cloudMesh.scale.clone();
+        cloudMesh.userData.targetScale = new THREE.Vector3(0, 0, 0); // Scale to zero
+
+        cloudMesh.userData.initialColor = cloudMesh.material.uniforms.base.value.clone();
+        // Optionally set targetColor if needed
+    });
+
+    // Create rain particles
+    createRainParticles();
+
+    // Create or repurpose a large cloud at the top
+    createLargeRainCloud();
+}
+
+function disableRain() {
+    if (!isRaining) return;
+
+    isRaining = false;
+
+    cloudMeshes.forEach(cloudMesh => {
+        // Reform normal clouds
+        cloudMesh.userData.isDissolving = false;
+        cloudMesh.userData.transitionProgress = 0;
+
+        // Store initial properties
+        cloudMesh.userData.initialThreshold = cloudMesh.material.uniforms.threshold.value;
+        cloudMesh.userData.targetThreshold = cloudMesh.userData.initialThresholdValue; // Reset to stored initial threshold
+
+        cloudMesh.userData.initialScale = cloudMesh.scale.clone();
+        cloudMesh.userData.targetScale = cloudMesh.userData.initialScaleValue; // Reset to stored initial scale
+
+        cloudMesh.userData.initialColor = cloudMesh.material.uniforms.base.value.clone();
+        // Optionally set targetColor if needed
+    });
+
+    // Dissolve the large rain cloud
+    if (largeRainCloud) {
+        largeRainCloud.userData.isDissolving = true;
+        largeRainCloud.userData.isAccumulating = false; // Stop accumulating
+        largeRainCloud.userData.transitionProgress = 0; // Start from 0 for dissolve
+        largeRainCloud.userData.initialThreshold = largeRainCloud.material.uniforms.threshold.value;
+        largeRainCloud.userData.targetThreshold = 1.0; // Increase threshold to dissolve
+    }
+
+    // Remove rain particles
+    if (rainParticles) {
+        scene.remove(rainParticles);
+        rainParticles = null;
+    }
+}
+
+function createRainParticles() {
+    const rainGeometry = new THREE.BufferGeometry();
+    const rainCount = 10000;
+
+    const positions = [];
+    const velocities = [];
+
+    for (let i = 0; i < rainCount; i++) {
+        const x = (Math.random() - 0.5) * 10000;
+        const y = Math.random() * 5000 + 1000; // Start above the ground
+        const z = (Math.random() - 0.5) * 10000;
+
+        positions.push(x, y, z);
+
+        // Initial velocities (randomized for variation)
+        velocities.push(0, -Math.random() * 200 - 200, 0); // Falling down
+    }
+
+    rainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    rainGeometry.setAttribute('velocity', new THREE.Float32BufferAttribute(velocities, 3));
+
+    const rainMaterial = new THREE.PointsMaterial({
+        color: 0xaaaaaa,
+        size: 2,
+        transparent: true,
+        opacity: 0.6,
+        depthWrite: false,
+    });
+
+    rainParticles = new THREE.Points(rainGeometry, rainMaterial);
+    rainParticles.frustumCulled = false; // Ensure particles are always rendered
+
+    scene.add(rainParticles);
+}
+
+function updateRainParticles(delta) {
+    if (!rainParticles) return;
+
+    const positions = rainParticles.geometry.attributes.position.array;
+    const velocities = rainParticles.geometry.attributes.velocity.array;
+    const count = positions.length / 3;
+
+    for (let i = 0; i < count; i++) {
+        const idx = i * 3;
+
+        // Update position based on velocity
+        positions[idx + 1] += velocities[idx + 1] * delta;
+
+        // Reset particle if it goes below the ground
+        if (positions[idx + 1] < 0) {
+            positions[idx + 1] = Math.random() * 5000 + 1000;
+        }
+    }
+
+    rainParticles.geometry.attributes.position.needsUpdate = true;
+}
+
+// Toggle rainy weather when the user presses the 'R' key
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'r' || event.key === 'R') {
+        if (isRaining) {
+            disableRain();
+        } else {
+            enableRain();
+        }
+    }
+});
 
 
 init();
@@ -219,6 +395,22 @@ function init() {
     // Initialize properties for each cloud mesh
     cloudMeshes.forEach(cloudMesh => {
         resetCloud(cloudMesh, true); // Initialize cloud with random age
+
+        // Initialize additional properties for weather transitions
+        cloudMesh.userData.isDissolving = false;
+        cloudMesh.userData.isRainCloud = false;
+        cloudMesh.userData.transitionProgress = 0;
+        cloudMesh.userData.initialPosition = cloudMesh.position.clone();
+        cloudMesh.userData.targetPosition = cloudMesh.position.clone();
+        cloudMesh.userData.initialScale = cloudMesh.scale.clone();
+        cloudMesh.userData.targetScale = cloudMesh.scale.clone();
+        cloudMesh.userData.initialColor = cloudMesh.material.uniforms.base.value.clone();
+        cloudMesh.userData.targetColor = cloudMesh.material.uniforms.base.value.clone();
+
+        cloudMesh.userData.initialThreshold = cloudMesh.material.uniforms.threshold.value;
+        cloudMesh.userData.targetThreshold = cloudMesh.material.uniforms.threshold.value;
+
+        cloudMesh.userData.initialScaleValue = cloudMesh.scale.clone();
     });
 
     // Set up UI to control time of day (from 6 AM to 6 PM)
@@ -383,14 +575,48 @@ function animate() {
 
     // Update clouds
     cloudMeshes.forEach(cloudMesh => {
-        // Update age
-        cloudMesh.userData.age += delta;
+        // Update age only if not transitioning and not raining
+        if (cloudMesh.userData.transitionProgress >= 1 && !isRaining) {
+            cloudMesh.userData.age += delta;
 
-        // Update cloud properties based on age
-        updateCloudProperties(cloudMesh);
+            // Update cloud properties based on age
+            updateCloudProperties(cloudMesh, isRaining);
+        }
 
         // Update time uniform
         cloudMesh.material.uniforms.time.value = elapsedTime;
+
+        // Update cloud threshold for dissolve or reform
+        if (cloudMesh.userData.transitionProgress < 1) {
+            // Transition in progress
+            cloudMesh.userData.transitionProgress += delta / 2; // Adjust speed as needed
+            if (cloudMesh.userData.transitionProgress > 1) {
+                cloudMesh.userData.transitionProgress = 1;
+            }
+
+            const t = cloudMesh.userData.transitionProgress;
+
+            // Interpolate threshold
+            cloudMesh.material.uniforms.threshold.value = THREE.MathUtils.lerp(
+                cloudMesh.userData.initialThreshold,
+                cloudMesh.userData.targetThreshold,
+                t
+            );
+
+            // Interpolate scale
+            cloudMesh.scale.lerpVectors(
+                cloudMesh.userData.initialScale,
+                cloudMesh.userData.targetScale,
+                t
+            );
+
+            // Interpolate color
+            cloudMesh.material.uniforms.base.value.lerpColors(
+                cloudMesh.userData.initialColor,
+                cloudMesh.userData.targetColor,
+                t
+            );
+        }
 
         // Modulate opacity over time
         const opacityCycle = Math.sin(elapsedTime * 0.1 + cloudMesh.userData.opacityOffset) * 0.5 + 0.5;
@@ -428,6 +654,44 @@ function animate() {
         }
     });
 
+    // Update rain particles if they exist
+    if (rainParticles) {
+        updateRainParticles(delta);
+    }
+
+    // Update large rain cloud if it exists
+    if (largeRainCloud) {
+        // Update time uniform
+        largeRainCloud.material.uniforms.time.value = elapsedTime;
+
+        // Update threshold for accumulation or dissolve
+        if (largeRainCloud.userData.transitionProgress < 1) {
+            largeRainCloud.userData.transitionProgress += delta / 2; // Adjust speed as needed
+            if (largeRainCloud.userData.transitionProgress > 1) {
+                largeRainCloud.userData.transitionProgress = 1;
+                // Start rain particles once the cloud has fully formed
+                if (largeRainCloud.userData.isAccumulating && !rainParticles) {
+                    createRainParticles();
+                }
+            }
+
+            const t = largeRainCloud.userData.transitionProgress;
+
+            // Interpolate threshold
+            largeRainCloud.material.uniforms.threshold.value = THREE.MathUtils.lerp(
+                largeRainCloud.userData.initialThreshold,
+                largeRainCloud.userData.targetThreshold,
+                t
+            );
+        }
+
+        // If dissolving and transition is complete, remove the large cloud
+        if (largeRainCloud.userData.isDissolving && largeRainCloud.userData.transitionProgress >= 1) {
+            scene.remove(largeRainCloud);
+            largeRainCloud = null;
+        }
+    }
+
     // Animate the noiseOffset to create twinkling effect
     if (skysphere && skysphere.material.uniforms.noiseOffset) {
         // Increment the noiseOffset based on noiseSpeed and deltaTime
@@ -445,3 +709,5 @@ function animate() {
 
     renderer.render(scene, camera);
 }
+
+
